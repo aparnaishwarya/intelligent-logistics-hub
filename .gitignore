@@ -1,0 +1,17 @@
+# Java
+target/
+*.class
+
+# Node
+node_modules/
+
+# Python
+venv/
+__pycache__/
+
+# IDE
+.idea/
+.vscode/
+
+# Environment
+.env
