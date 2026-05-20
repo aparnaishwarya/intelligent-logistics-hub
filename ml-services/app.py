@@ -1,32 +1,37 @@
 from flask import Flask, jsonify, request
+import joblib
+import numpy as np
 
 app = Flask(__name__)
 
-# Health check route
+# Load trained model
+model = joblib.load("models/sales_model.pkl")
+
+# Health check
 @app.route('/health', methods=['GET'])
 def health():
     return jsonify({
         "status": "ML Service Running"
     })
 
-# Simple prediction route
+# Predict future sales
 @app.route('/predict-sales', methods=['POST'])
 def predict_sales():
 
     data = request.json
 
-    sales = data.get("sales", [])
+    future_day = data.get("day")
 
-    if not sales:
+    if future_day is None:
         return jsonify({
-            "error": "No sales data provided"
+            "error": "Please provide day"
         }), 400
 
-    # Simple average prediction
-    prediction = sum(sales) / len(sales)
+    prediction = model.predict(np.array([[future_day]]))
 
     return jsonify({
-        "predicted_sales": round(prediction, 2)
+        "future_day": future_day,
+        "predicted_sales": round(float(prediction[0]), 2)
     })
 
 if __name__ == '__main__':
