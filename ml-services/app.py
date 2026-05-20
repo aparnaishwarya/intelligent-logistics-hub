@@ -2,6 +2,9 @@ from flask import Flask, jsonify, request
 import joblib
 import numpy as np
 
+from damage_detection.detect_damage import predict_damage
+import os
+
 app = Flask(__name__)
 
 # Load trained model
@@ -34,5 +37,33 @@ def predict_sales():
         "predicted_sales": round(float(prediction[0]), 2)
     })
 
+
+@app.route('/detect-damage', methods=['POST'])
+def detect_damage():
+
+    if 'image' not in request.files:
+        return jsonify({
+            "error": "No image uploaded"
+        }), 400
+
+    image = request.files['image']
+
+    # Create upload folder if not exists
+    os.makedirs("damage_detection/uploads", exist_ok=True)
+
+    image_path = os.path.join(
+        "damage_detection/uploads",
+        image.filename
+    )
+
+    image.save(image_path)
+
+    result = predict_damage(image_path)
+
+    return jsonify(result)
+
+
 if __name__ == '__main__':
     app.run(debug=True)
+
+
