@@ -1,40 +1,43 @@
-from flask import Flask, jsonify, request
-import joblib
+from flask import Flask, request, jsonify
+from tensorflow.keras.models import load_model
 import numpy as np
-
-from damage_detection.detect_damage import predict_damage
+import joblib
+from damage_detection.predict_damage import predict_damage
 import os
 
 app = Flask(__name__)
 
-# Load trained model
-model = joblib.load("models/sales_model.pkl")
+# Load model and scaler
+model = load_model(
+    "models/lstm_sales_model.keras",
+    compile=False
+)
+scaler = joblib.load("models/scaler.pkl")
 
-# Health check
-@app.route('/health', methods=['GET'])
-def health():
-    return jsonify({
-        "status": "ML Service Running"
-    })
-
-# Predict future sales
 @app.route('/predict-sales', methods=['POST'])
 def predict_sales():
 
     data = request.json
 
-    future_day = data.get("day")
+    sequence = data.get("sequence")
 
-    if future_day is None:
+    if len(sequence) != 3:
         return jsonify({
-            "error": "Please provide day"
+            "error": "Sequence must contain 3 values"
         }), 400
 
-    prediction = model.predict(np.array([[future_day]]))
+    sequence = np.array(sequence).reshape(-1, 1)
+
+    sequence = scaler.transform(sequence)
+
+    X_test = np.array([sequence])
+
+    prediction = model.predict(X_test)
+
+    prediction = scaler.inverse_transform(prediction)
 
     return jsonify({
-        "future_day": future_day,
-        "predicted_sales": round(float(prediction[0]), 2)
+        "predicted_sales": round(float(prediction[0][0]), 2)
     })
 
 
@@ -46,24 +49,24 @@ def detect_damage():
             "error": "No image uploaded"
         }), 400
 
-    image = request.files['image']
+    file = request.files['image']
 
-    # Create upload folder if not exists
-    os.makedirs("damage_detection/uploads", exist_ok=True)
-
-    image_path = os.path.join(
+    upload_path = os.path.join(
         "damage_detection/uploads",
-        image.filename
+        file.filename
     )
 
-    image.save(image_path)
+    os.makedirs(
+        "damage_detection/uploads",
+        exist_ok=True
+    )
 
-    result = predict_damage(image_path)
+    file.save(upload_path)
+
+    result = predict_damage(upload_path)
 
     return jsonify(result)
 
 
 if __name__ == '__main__':
     app.run(debug=True)
-
-
